@@ -11,6 +11,7 @@ using Archipelago.MultiClient.Net.Packets;
 using TBWArch.Utils;
 using TBWArch.SaveSystem;
 using Wizards.SaveSystem;
+using Wizards.Perks;
 using System.Threading.Tasks;
 
 namespace TBWArch.Archipelago;
@@ -200,6 +201,13 @@ public class ArchipelagoClient
 
                 UnlockItemByName(unlockWizardName);
                 break;
+
+            case long id when id >= baseId + 50 && id <= baseId + 100:
+                string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
+                ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
+
+                UnlockPerkByName(unlockPerkName);
+                break;
         }
     }
 
@@ -241,7 +249,21 @@ public class ArchipelagoClient
         }
         else
         {
-            Plugin.BepinLogger.LogError($"Failed to unlock item {unlockName} because it was not found in the game's unlockables.");
+            Plugin.BepinLogger.LogError($"Failed to unlock perk {unlockName} because it was not found in the game's unlockables.");
+        }
+    }
+
+    private void UnlockPerkByName(string perkName)
+    {
+        CharacterPerk perk = Managers.Perks.GetByName(perkName);
+        if (perk != null)
+        {
+            Managers.Perks.AcquirePerk(perk);
+            ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
+        }
+        else
+        {
+            ArchipelagoConsole.LogMessage($"Failed to unlock perk {perkName} because it was not found in the game's perks.");
         }
     }
 }
