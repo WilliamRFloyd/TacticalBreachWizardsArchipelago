@@ -15,6 +15,28 @@ public class ArchipelagoItems
         {BASE_ID + 13, "RiotPriest"},
         {BASE_ID + 14, "Druid"},
 
+        //Ability unlocks (which are technically perks too but whatever)
+        {BASE_ID + 20, "UnlockArcaneBurst"},
+        {BASE_ID + 21, "UnlockTimeBoost"},
+        {BASE_ID + 22, "UnlockFalseProphet"},
+        {BASE_ID + 23, "seerOverwatch"}, //I'm still very upset this ability specifically doesn't have the same unlock name.
+        {BASE_ID + 24, "UnlockWitchBolt"},
+        {BASE_ID + 25, "UnlockChainShock"},
+        {BASE_ID + 26, "UnlockBroomBreach"},
+        {BASE_ID + 27, "UnlockGaleGrenade"},
+        {BASE_ID + 28, "UnlockSedativeGrenade"},
+        {BASE_ID + 29, "UnlockGhostShot"},
+        {BASE_ID + 30, "UnlockResurrect"},
+        {BASE_ID + 31, "UnlockDeathsDoor"},
+        {BASE_ID + 32, "UnlockTransference"},
+        {BASE_ID + 33, "UnlockCharge"},
+        {BASE_ID + 34, "UnlockCenserSmash"},
+        {BASE_ID + 35, "UnlockSwap"},
+        {BASE_ID + 36, "UnlockThrowCover"},
+        {BASE_ID + 37, "UnlockRabidBite"},
+        {BASE_ID + 38, "UnlockPullAttack"},
+        {BASE_ID + 39, "UnlockDruidAcidDart"},
+        {BASE_ID + 40, "UnlockDruidPlantGrenade"},
         //Perks
         {BASE_ID + 50, "ArcaneBurstDamage"},
         {BASE_ID + 51, "SupportingFire"},

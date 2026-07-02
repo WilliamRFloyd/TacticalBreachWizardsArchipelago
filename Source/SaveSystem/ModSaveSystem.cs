@@ -5,10 +5,12 @@ using System.Reflection.Emit;
 using UnityEngine;
 using Wizards.Perks;
 using Wizards.SaveSystem;
+using TBWArch.Archipelago;
 using TBWArch.Utils;
 using System;
 using System.Reflection;
 using Wizards.Stages;
+using Wizards.UI;
 
 namespace TBWArch.SaveSystem
 {
@@ -263,6 +265,20 @@ namespace TBWArch.SaveSystem
             if (!__instance.LoadArchipelagoData())
             {
                 __instance.SaveArchipelagoData();
+            }
+        }
+
+        [HarmonyPatch(typeof(MainMenuPanel), "OnQuitClick")]
+        [HarmonyPrefix]
+        public static void OnQuitClickPatch()
+        {
+            Plugin.BepinLogger.LogMessage("OnQuitClickPatch called");
+            Plugin.BepinLogger.LogError("OnQuitClickPatch called");
+            Plugin.BepinLogger.LogMessage($"{ArchipelagoClient.Instance == null}");
+            if (ArchipelagoClient.Instance != null)
+            {
+                Plugin.BepinLogger.LogError("Disconnecting from Archipelago server on quit...");
+                ArchipelagoClient.Instance.Disconnect();
             }
         }
     }

@@ -12,7 +12,10 @@ using TBWArch.Utils;
 using TBWArch.SaveSystem;
 using Wizards.SaveSystem;
 using Wizards.Perks;
+using Wizards.People;
 using System.Threading.Tasks;
+using HarmonyLib;
+using System.Collections.Generic;
 
 namespace TBWArch.Archipelago;
 
@@ -20,6 +23,8 @@ public class ArchipelagoClient
 {
     public static readonly Version APVersion = new(0, 6, 8);
     private const string Game = "Tactical Breach Wizards";
+
+    public static ArchipelagoClient Instance { get; private set; }
 
     public static bool Authenticated;
     private bool attemptingConnection;
@@ -35,6 +40,11 @@ public class ArchipelagoClient
     public async Task Connect()
     {
         if (Authenticated || attemptingConnection) return;
+
+        if (Instance == null)
+        {
+            Instance = this;
+        }
 
         ConnectionManager connectionManager = SaveArchipelagoBehavior.connectionManager;
 
@@ -162,7 +172,7 @@ public class ArchipelagoClient
     /// <summary>
     /// something went wrong, or we need to properly disconnect from the server. cleanup and re null our session
     /// </summary>
-    private void Disconnect()
+    public void Disconnect()
     {
         Plugin.BepinLogger.LogDebug("disconnecting from server...");
         session?.Socket.DisconnectAsync();
@@ -202,7 +212,7 @@ public class ArchipelagoClient
                 UnlockItemByName(unlockWizardName);
                 break;
 
-            case long id when id >= baseId + 50 && id <= baseId + 100:
+            case long id when (id >= baseId + 20 && id <= baseId + 40) || (id >= baseId + 50 && id <= baseId + 100):
                 string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
                 ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
 
@@ -255,15 +265,11 @@ public class ArchipelagoClient
 
     private void UnlockPerkByName(string perkName)
     {
-        CharacterPerk perk = Managers.Perks.GetByName(perkName);
-        if (perk != null)
-        {
-            Managers.Perks.AcquirePerk(perk);
-            ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
-        }
-        else
-        {
-            ArchipelagoConsole.LogMessage($"Failed to unlock perk {perkName} because it was not found in the game's perks.");
-        }
+        Managers.Save.LoadPerksData();
+        PerkManager perkManager = Managers.Perks;
+        ModPerks.CallGetAcquiredPerks(perkManager, false).Add(perkName);
+        Managers.Save.SavePerksData();
+
+        ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
     }
 }
