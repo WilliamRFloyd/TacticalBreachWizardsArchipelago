@@ -212,7 +212,7 @@ public class ArchipelagoClient
                 UnlockItemByName(unlockWizardName);
                 break;
 
-            case long id when (id >= baseId + 20 && id <= baseId + 40) || (id >= baseId + 50 && id <= baseId + 100):
+            case long id when (id >= baseId + 20 && id <= baseId + 41) || (id >= baseId + 50 && id <= baseId + 100):
                 string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
                 ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
 

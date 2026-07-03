@@ -36,7 +36,9 @@ public class ArchipelagoItems
         {BASE_ID + 37, "UnlockRabidBite"},
         {BASE_ID + 38, "UnlockPullAttack"},
         {BASE_ID + 39, "UnlockDruidAcidDart"},
-        {BASE_ID + 40, "UnlockDruidPlantGrenade"},
+        {BASE_ID + 40, "UnlockCrowdGrenade"}, //Spore grenade
+        {BASE_ID + 41, "UnlockStealMana"},
+
         //Perks
         {BASE_ID + 50, "ArcaneBurstDamage"},
         {BASE_ID + 51, "SupportingFire"},

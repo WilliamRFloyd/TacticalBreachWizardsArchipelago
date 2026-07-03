@@ -16,11 +16,53 @@ using TBWArch.Archipelago;
 
 namespace TBWArch.SaveSystem
 {
+    public class JunkPerk : CharacterPerk
+    {
+        public string saveName;
+
+        public string targetAbilityClassName;
+        public override CharacterNames ApplicableCharacter { get {return CharacterNames.None;} }
+
+		public override string SaveName
+		{
+			get
+			{
+				return this.saveName;
+			}
+		}
+
+        protected sealed override void ApplyPerk(Person _user)
+        {
+            return;
+        }
+    }
+
     [HarmonyPatch]
     internal class ModPerks
     {
         public static bool perksAdded = false;
         public static bool temp = false;
+
+        public static Dictionary<string, string> abilityToUnlockPerk = new Dictionary<string, string>
+        {
+            {"SeerShot", "UnlockArcaneBurst"},
+
+            {"WandShot", "UnlockWitchBolt"},
+
+            {"ThrowInstantGrenade", "UnlockSedativeGrenade"},
+            {"Resurrect", "UnlockResurrect"},
+            {"DeathsDoor", "UnlockDeathsDoor"},
+
+            {"Charge", "UnlockCharge"},
+            {"CenserSmash", "UnlockCenserSmash"},
+            {"Swap", "UnlockSwap"},
+            {"ThrowCover", "UnlockThrowCover"},
+
+            {"DogPounce", "UnlockRabidBite"},
+            {"PullAttack", "UnlockPullAttack"},
+            {"DruidAcidDart", "UnlockDruidAcidDart"},
+            {"StealMana", "UnlockStealMana"},
+        };
 
         [HarmonyReversePatch]
         [HarmonyPatch(typeof(PerkManager), "GetAcquiredPerks")]
@@ -29,48 +71,57 @@ namespace TBWArch.SaveSystem
             throw new NotImplementedException("Failed to patch");
         }
 
-        public static List<ProgressAddAbilityPerk> GetNewUnlockPerks()
+        [HarmonyPatch(typeof(PerkManager), "GetCharacterAbilities")]
+        [HarmonyPostfix]   
+        internal static void GetCharacterAbilitiesPatch(PerkManager __instance, ref IEnumerable<AbilitySO> __result, ref Dictionary<string, CharacterPerk> ___saveNameMap)
         {
-            try
+            //AddNewUnlockPerks(__instance, ref ___saveNameMap);
+            foreach (AbilitySO ability in __result)
             {
-                List<AbilitySO> druidAbilities = Managers.Characters.GetClassData(CharacterNames.Druid).abilityList;
-                druidAbilities.RemoveAll(a => a is DruidAcidDart);
-
-                ProgressAddAbilityPerk unlockDruidAcidDart = ScriptableObject.CreateInstance<ProgressAddAbilityPerk>();
-                unlockDruidAcidDart.saveName = "UnlockDruidAcidDart";
-                unlockDruidAcidDart.applicableCharacter = CharacterNames.Druid;
-                unlockDruidAcidDart.abilityMaster = Dev.FindObjectsOfType<DruidAcidDart>().FirstOrDefault();
-                //ArchipelagoConsole.LogMessage($"Adding new perk: {unlockDruidAcidDart.saveName} for ability: {unlockDruidAcidDart.abilityMaster.AbilityClassName}");
-
-                return new List<ProgressAddAbilityPerk> { unlockDruidAcidDart };
-            }
-            catch (Exception e)
-            {
-                //ArchipelagoConsole.LogMessage($"Failed to create new unlock perks. Exception: {e}");
-                Plugin.BepinLogger.LogError(e);
-                return new List<ProgressAddAbilityPerk>();
-            }
-
-        }
-
-        [HarmonyPatch(typeof(PerkManager), "GetByCharacter", new Type[] {typeof(CharacterNames)})]
-        [HarmonyPrefix]   
-        internal static void GetByCharacterPatch(PerkManager __instance, ref CharacterNames _character, ref Dictionary<string, CharacterPerk> ___saveNameMap)
-        {
-            if (!perksAdded)
-            {
-                foreach (var perk in GetNewUnlockPerks())
+                if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
                 {
-                    if (!___saveNameMap.ContainsKey(perk.saveName))
+                    CharacterPerk perk = __instance.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
+                    if (!__instance.IsAcquired(perk))
                     {
-                        ___saveNameMap.Add(perk.saveName, perk);
+                        __result = __result.Where(a => a != ability);
                     }
                 }
-                perksAdded = true;
+                //ArchipelagoConsole.LogMessage(ability.AbilityClassName);
             }
         }
 
-        [HarmonyPatch(typeof(PerkManager), "GetCharacterAbilities")]
+        [HarmonyPatch(typeof(Person), "CreateAbilities")]
+        [HarmonyPostfix]
+        internal static void CreateAbilitiesPatch(Person __instance)
+        {
+            List<AbilitySO> abilitiesToRemove = new List<AbilitySO>();
+            foreach (AbilitySO ability in __instance.abilityInstanceList)
+            {
+                if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
+                {
+                    PerkManager perkManager = Managers.Perks;
+                    CharacterPerk perk = perkManager.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
+                    if (!perkManager.IsAcquired(perk))
+                    {
+                        abilitiesToRemove.Add(ability);
+                    }
+                }
+            }
+
+            foreach (AbilitySO ability in abilitiesToRemove)
+            {
+                __instance.RemoveAbility(ability);
+            }
+        }
+
+        [HarmonyPatch(typeof(PerkManager), "GetByName")]
+        [HarmonyPrefix]   
+        internal static void GetByNamePatch(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
+        {
+            //AddNewUnlockPerks(__instance, ref ___saveNameMap);
+        }
+
+        /*[HarmonyPatch(typeof(PerkManager), "GetCharacterAbilities")]
         [HarmonyPostfix]
         internal static void GetCharacterAbilitiesPatch(PerkManager __instance, ref CharacterNames _character, ref Dictionary<string, CharacterPerk> ___saveNameMap, ref IEnumerable<AbilitySO> __result)
         {
@@ -85,33 +136,22 @@ namespace TBWArch.SaveSystem
                         ArchipelagoConsole.LogMessage($"PerkManager has ability perk: {abilityPerk.saveName} for ability: {abilityPerk.abilityMaster.AbilityClassName}");
                     }
                 }
-
-                foreach (AbilitySO ability in __result)
-                {
-                    ArchipelagoConsole.LogMessage($"PerkManager has ability: {ability.AbilityClassName}");
-                }
                 temp = true;
-
-                /*IEnumerable<CharacterPerk> source = __instance.GetByCharacter(_character);
-                HashSet<AbilitySO> hashSet = new HashSet<AbilitySO>(from _ability in Managers.Characters.GetClassData(_character).abilityList
-                where !(_ability is TakeCover)
-                select _ability);
-                hashSet.UnionWith((from _perk in (from _perk in source
-                select _perk as ProgressAddAbilityPerk).ExcludeNull<ProgressAddAbilityPerk>()
-                select _perk.abilityMaster).Distinct<AbilitySO>());
-
-                foreach (AbilitySO ability in hashSet)
-                {
-                    ArchipelagoConsole.LogMessage($"hashSet has ability: {ability.AbilityClassName}");
-                }*/
             }
-        }
+        }*/
 
         [HarmonyPatch(typeof(PerkManager), "Awake")]
         [HarmonyPostfix]
-        internal static void AddNewUnlockPerks(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
+        internal static void ReadyPerkAdd(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
         {
-            perksAdded = false;
+            foreach (string abilityName in abilityToUnlockPerk.Keys)
+            {
+                JunkPerk perk = ScriptableObject.CreateInstance<JunkPerk>();
+                string saveName = abilityToUnlockPerk[abilityName];
+                perk.saveName = saveName;
+                perk.targetAbilityClassName = abilityName;
+                ___saveNameMap.Add(saveName, perk);
+            }
         }
     }
 }
