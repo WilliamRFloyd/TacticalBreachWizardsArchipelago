@@ -217,15 +217,56 @@ namespace TBWArch.SaveSystem
             "SdMsn_3ProvingGroundsUnlock"
         ];
 
-        [HarmonyPatch(typeof(StageManager), "Start")]
-        [HarmonyPrefix]
-        public static void AddAllStagesPatch(StageManager __instance, ref HashSet<string> ___completedStageIDs)
+        private static readonly List<string> allWantedUnlockables = [
+            "Mission_Select_Panel",
+            "MissionDream2A",
+            "MissionDream2B",
+            "MissionDream2C",
+            "MissionDream2D",
+            "MissionDream3B",
+            "MissionDream3C",
+            "Mission3ProvingGroundsMissionUnlock",
+        ];
+
+        public static void AddAllStages()
         {
-            __instance.ResetProgress();
-			foreach (string stage in allStages)
-			{
-                ___completedStageIDs.Add(stage);
-			}
+            HashSet<string> allStagesSet = [.. allStages];
+            StageManager stageManager = Managers.Stage;
+            stageManager.ResetProgress();
+            Traverse.Create(stageManager).Field("completedStageIDs").SetValue(allStagesSet);
+            Managers.Save.SaveProgressData();
+        }
+
+        public static void AddDreamsPanel()
+        {
+            Managers.Save.LoadProgressData();
+            foreach (string unlockableName in allWantedUnlockables)
+            {
+                Unlockable unlock = Managers.Progress.GetUnlockableByName(unlockableName);
+                if (unlock != null)
+                {
+                    unlock.unlocked = true;
+                }
+                else
+                {
+                    ArchipelagoConsole.LogMessage($"No unlockable {unlockableName}");
+                }
+            }
+            Managers.Save.SaveProgressData();
+        }
+
+        [HarmonyPatch(typeof(PlayPanel), "UpdatePanel")]
+        [HarmonyPrefix]
+        public static void UpdatePanelPatch(PlayPanel __instance)
+        {
+            if (Managers.Stage.NumberOfCompletedStages < allStages.Count)
+            {
+                AddAllStages();
+            }
+            if (!Managers.Progress.GetUnlockableByName("MissionAct4Tests").unlocked)
+            {
+                AddDreamsPanel();
+            }
         }
 
         [HarmonyPatch(typeof(SaveManager), "Awake")]
@@ -246,6 +287,11 @@ namespace TBWArch.SaveSystem
             {
                 __instance.gameObject.AddComponent<LevelSaveManager>();
             }
+
+            if (__instance.GetComponent<MissionUnlockManager>() == null)
+            {
+                __instance.gameObject.AddComponent<MissionUnlockManager>();
+            }
         }
 
         public static string GetArchipelagoSaveSlotDirectory()
@@ -257,10 +303,7 @@ namespace TBWArch.SaveSystem
         [HarmonyPostfix]
         public static void SaveSlotPatch(SaveManager __instance, int _slot, ref string __result)
         {
-            if (_slot == 4)
-            {
-                __result = GetArchipelagoSaveSlotDirectory();
-            }
+            __result = GetArchipelagoSaveSlotDirectory();
         }
 
 

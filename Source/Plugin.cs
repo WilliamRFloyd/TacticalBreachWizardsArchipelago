@@ -38,6 +38,15 @@ public class Plugin : BaseUnityPlugin
         ArchipelagoConsole.LogMessage($"{ModDisplayInfo} loaded!");
     }
 
+    private void Update()
+    {
+        if (ArchipelagoClient.Instance != null)
+        {
+            ArchipelagoClient.Instance.HandleItems();
+            ArchipelagoClient.Instance.HandleLocations();
+        }
+    }
+
     private async Task OnGUI()
     {
         // show the mod is currently loaded in the corner

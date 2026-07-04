@@ -17,6 +17,9 @@ using Wizards.People;
 using System.Threading.Tasks;
 using HarmonyLib;
 using System.Collections.Generic;
+using Wizards.UI;
+using System.Collections.ObjectModel;
+using System.Security.Cryptography.X509Certificates;
 
 namespace TBWArch.Archipelago;
 
@@ -34,22 +37,31 @@ public class ArchipelagoClient
     private DeathLinkHandler DeathLinkHandler;
     private static ArchipelagoSession session;
 
+    public Queue<ItemInfo> itemQueue = [];
+
+    public Queue<long> checkedLocationsQueue = [];
+
     /// <summary>
     /// call to connect to an Archipelago session. Connection info should already be set up on ServerData
     /// </summary>
     /// <returns></returns>
     public async Task Connect()
     {
-        StoreSavedChecks();
         if (Authenticated || attemptingConnection) return;
 
         ConnectionManager connectionManager = SaveArchipelagoBehavior.connectionManager;
+        itemQueue = [];
 
         if (connectionManager != null)
         {
             connectionManager.serverName = ServerData.Uri;
             connectionManager.slotName = ServerData.SlotName;
+            SaveArchipelagoBehavior.levelSaveManager.ResetProgress();
+            SaveArchipelagoBehavior.missionUnlockManager.ResetProgress();
+            Managers.Save.ResetPermanentProgressData();
             Managers.Save.SaveArchipelagoData();
+            ModSaveSystem.AddAllStages();
+            Managers.Save.SaveProgressData();
         }
 
 
@@ -76,6 +88,7 @@ public class ArchipelagoClient
         session.Items.ItemReceived += OnItemReceived;
         session.Socket.ErrorReceived += OnSessionErrorReceived;
         session.Socket.SocketClosed += OnSessionSocketClosed;
+        session.Locations.CheckedLocationsUpdated += OnLocationRecieved;
     }
 
     /// <summary>
@@ -195,26 +208,117 @@ public class ArchipelagoClient
         // TODO reward the item here
         // if items can be received while in an invalid state for actually handling them, they can be placed in a local
         // queue/collection to be handled later
-        ItemInfo nextItem = helper.DequeueItem();
-        ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName}");
+        ItemInfo item = helper.DequeueItem();
+        itemQueue.Enqueue(item);
+    }
 
-        long baseId = 1000;
-
-        switch(nextItem.ItemId)
+    private void OnLocationRecieved(ReadOnlyCollection<long> newCheckedLocations)
+    {
+        foreach (long checkedLocation in newCheckedLocations)
         {
-            case long id when id >= baseId + 10 && id <= baseId + 14:
-                string unlockWizardName = ArchipelagoItems.ItemIdToUnlock[id];
-                ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a wizard class with unlock name {unlockWizardName}. Unlocking it.");
+            checkedLocationsQueue.Enqueue(checkedLocation);
+        }
+    }
 
-                UnlockItemByName(unlockWizardName);
-                break;
+    public void HandleLocations()
+    {
+        if (checkedLocationsQueue.Count == 0)
+        {
+            return;
+        }
 
-            case long id when (id >= baseId + 20 && id <= baseId + 41) || (id >= baseId + 50 && id <= baseId + 100):
-                string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
-                ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
+        bool canHandleLocations = false;
 
-                UnlockPerkByName(unlockPerkName);
-                break;
+        if (Managers.InGameMenu != null)
+        {
+            canHandleLocations = Managers.InGameMenu.MenuMode != MenuMode.missionCharacterSelect && Managers.InGameMenu.MenuMode != MenuMode.endMission;
+        }
+
+        if (canHandleLocations)
+        {
+            long locationId = checkedLocationsQueue.Dequeue();
+            ServerData.CheckedLocations.Add(locationId);
+
+            string locationName = ArchipelagoLocations.LocationNameToId.FirstOrDefault(x => x.Value == locationId).Key;
+
+            if (locationName == "")
+            {
+                ArchipelagoConsole.LogMessage($"Location with {locationId} was not found");
+                return;
+            }
+
+            switch (locationId)
+            {
+                case long id when id >= 1030 && id <= 1151:
+                    ArchipelagoConsole.LogMessage($"Level complete {locationName}");
+                    LevelSaveManager levelSaveManager = SaveArchipelagoBehavior.levelSaveManager;
+                    if (!levelSaveManager.completedLevels.Contains(locationName))
+                    {
+                        levelSaveManager.completedLevels.Add(locationName);
+                        Managers.Save.SaveArchipelagoData();
+                    }
+                    break;
+
+                case long id when id >= 1200 && id <= 1431:
+                    ArchipelagoConsole.LogMessage($"Confidence goal complete {locationName}");
+                    ConfidencePointManager confidencePointManager = Managers.ConfidencePoints;
+
+                    HashSet<string> completedGoals = Traverse.Create(confidencePointManager).Field("completedGoals").GetValue<HashSet<string>>();
+
+                    if (!completedGoals.Contains(locationName))
+                    {
+                        completedGoals.Add(locationName);
+                        Managers.Save.SaveProgressData();
+                    }
+                    break;
+            }
+        }
+    }
+
+    public void HandleItems()
+    {
+        if (itemQueue.Count == 0)
+        {
+            return;
+        }
+
+        bool canHandleItems = false;
+
+        if (Managers.InGameMenu != null)
+        {
+            canHandleItems = Managers.InGameMenu.MenuMode != MenuMode.missionCharacterSelect && Managers.InGameMenu.MenuMode != MenuMode.endMission;
+        }
+        
+        if (canHandleItems)
+        {
+            ItemInfo nextItem = itemQueue.Dequeue();
+            ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName}");
+
+            long baseId = 1000;
+
+            switch(nextItem.ItemId)
+            {
+                case long id when id >= baseId + 10 && id <= baseId + 14:
+                    string unlockWizardName = ArchipelagoItems.ItemIdToUnlock[id];
+                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a wizard class with unlock name {unlockWizardName}. Unlocking it.");
+
+                    UnlockItemByName(unlockWizardName);
+                    break;
+
+                case long id when (id >= baseId + 20 && id <= baseId + 41) || (id >= baseId + 50 && id <= baseId + 100):
+                    string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
+                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
+
+                    UnlockPerkByName(unlockPerkName);
+                    break;
+
+                case long id when id >= baseId + 300 && id <= baseId + 340:
+                    string unlockMissionName = ArchipelagoItems.ItemIdToUnlock[id];
+                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a mission with unlock name {unlockMissionName}. Unlocking it.");
+
+                    UnlockMissionByName(unlockMissionName);
+                    break;
+            }
         }
     }
 
@@ -244,25 +348,6 @@ public class ArchipelagoClient
         Disconnect();
     }
 
-    private void StoreSavedChecks()
-    {
-        //Completed Levels
-        Managers.Save.LoadArchipelagoData();
-        LevelSaveManager levelSaveManager = SaveArchipelagoBehavior.levelSaveManager;
-        foreach (string completedLevel in levelSaveManager.completedLevels)
-        {
-            AddLocationByName(completedLevel);
-        }
-
-        Managers.Save.LoadProgressData();
-        ConfidencePointManager confidencePointManager = Managers.ConfidencePoints;
-        HashSet<string> completedGoals = Traverse.Create(confidencePointManager).Field("completedGoals").GetValue<HashSet<string>>();
-        foreach (string completedGoal in completedGoals)
-        {
-            AddLocationByName(completedGoal);
-        }
-    }
-
     private void UnlockItemByName(string unlockName)
     {
         Unlockable unlock = Managers.Progress.GetUnlockableByName(unlockName);
@@ -286,6 +371,16 @@ public class ArchipelagoClient
         Managers.Save.SavePerksData();
 
         ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
+    }
+
+    private void UnlockMissionByName(string missionName)
+    {
+        Managers.Save.LoadArchipelagoData();
+        MissionUnlockManager missionUnlockManager = SaveArchipelagoBehavior.missionUnlockManager;
+        missionUnlockManager.unlockedMissions.Add(missionName);
+        Managers.Save.SaveArchipelagoData();
+
+        ArchipelagoConsole.LogMessage($"Unlocked mission {missionName}.");
     }
 
     public void AddLocationByName(string name)

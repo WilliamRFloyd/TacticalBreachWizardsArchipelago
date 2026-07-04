@@ -168,6 +168,8 @@ namespace TBWArch.SaveSystem
 
 		public static LevelSaveManager levelSaveManager;
 
+		public static MissionUnlockManager missionUnlockManager;
+
         public abstract void ResetProgress();
     }
 
@@ -228,6 +230,7 @@ namespace TBWArch.SaveSystem
 	public class LevelSaveManager : SaveArchipelagoBehavior, ISaveableComponent
 	{
 		public HashSet<string> completedLevels;
+
         public override string SaveName
 		{
 			get
@@ -268,6 +271,60 @@ namespace TBWArch.SaveSystem
 				foreach (string item in _data.FindList("completedLevel"))
 				{
 					this.completedLevels.Add(item);
+				}
+			}
+        }
+
+		public void FinishLoadingData()
+		{
+			
+		}
+	}
+
+	public class MissionUnlockManager : SaveArchipelagoBehavior, ISaveableComponent
+	{
+		public HashSet<string> unlockedMissions;
+
+        public override string SaveName
+		{
+			get
+			{
+				return "LevelSaveManager";
+			}
+		}
+
+        protected override void Awake()
+        {
+            base.Awake();
+			this.unlockedMissions = new HashSet<string>();
+            if (missionUnlockManager == null)
+            {
+                missionUnlockManager = this;
+            }
+        }
+
+        public override void ResetProgress()
+        {
+            this.unlockedMissions.Clear();
+        }
+
+        public void SaveData(IDataBlockRecorder _writer)
+        {
+			_writer.WriteComment("Unlocked Missions");
+			foreach (string value in this.unlockedMissions)
+			{
+				_writer.WriteListData("unlockedMission", value);
+			}
+        }
+
+        public void LoadData(DataBlock _data)
+        {
+            this.ResetProgress();
+            if (_data.ContainsKey("unlockedMission"))
+			{
+				foreach (string item in _data.FindList("unlockedMission"))
+				{
+					this.unlockedMissions.Add(item);
 				}
 			}
         }

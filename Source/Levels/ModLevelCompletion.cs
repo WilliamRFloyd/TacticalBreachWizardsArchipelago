@@ -24,7 +24,6 @@ namespace TBWArch.Levels
         public static void MarkLevelCompletePatch(LevelManager __instance)
         {
             string saveName = __instance.currentFile.GetSaveDataString();
-            ArchipelagoConsole.LogMessage(saveName);
             Managers.Save.LoadArchipelagoData();
 
             LevelSaveManager levelSaveManager = SaveArchipelagoBehavior.levelSaveManager;

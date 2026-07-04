@@ -51,7 +51,7 @@ namespace TBWArch.SaveSystem
             {"WandShot", "UnlockWitchBolt"},
 
             {"ThrowInstantGrenade", "UnlockSedativeGrenade"},
-            {"Resurrect", "UnlockResurrect"},
+            {"ResurrectFriend", "UnlockResurrect"},
             {"DeathsDoor", "UnlockDeathsDoor"},
 
             {"Charge", "UnlockCharge"},
@@ -102,6 +102,7 @@ namespace TBWArch.SaveSystem
                 {
                     if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
                     {
+                        
                         PerkManager perkManager = Managers.Perks;
                         CharacterPerk perk = perkManager.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
                         if (!perkManager.IsAcquired(perk))
