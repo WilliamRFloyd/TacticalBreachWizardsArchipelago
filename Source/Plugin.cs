@@ -29,8 +29,9 @@ public class Plugin : BaseUnityPlugin
     {
         // Plugin startup logic
         BepinLogger = Logger;
-        ArchipelagoClient = new ArchipelagoClient();
+        ArchipelagoClient archipelagoClient = new ArchipelagoClient();
         ArchipelagoConsole.Awake();
+        ArchipelagoClient.Instance = archipelagoClient;
 
         harmony.PatchAll();
 
@@ -75,7 +76,7 @@ public class Plugin : BaseUnityPlugin
             if (GUI.Button(new Rect(16, 130, 100, 20), "Connect") &&
                 !ArchipelagoClient.ServerData.SlotName.IsNullOrWhiteSpace())
             {
-                await ArchipelagoClient.Connect();
+                await ArchipelagoClient.Instance.Connect();
             }
         }
         // this is a good place to create and add a bunch of debug buttons

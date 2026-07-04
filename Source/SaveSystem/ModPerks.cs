@@ -13,6 +13,7 @@ using System.IO;
 using Wizards.Stages;
 using System.Runtime.CompilerServices;
 using TBWArch.Archipelago;
+using BepInEx;
 
 namespace TBWArch.SaveSystem
 {
@@ -94,51 +95,32 @@ namespace TBWArch.SaveSystem
         [HarmonyPostfix]
         internal static void CreateAbilitiesPatch(Person __instance)
         {
-            List<AbilitySO> abilitiesToRemove = new List<AbilitySO>();
-            foreach (AbilitySO ability in __instance.abilityInstanceList)
+            try
             {
-                if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
+                List<AbilitySO> abilitiesToRemove = new List<AbilitySO>();
+                foreach (AbilitySO ability in __instance.abilityInstanceList)
                 {
-                    PerkManager perkManager = Managers.Perks;
-                    CharacterPerk perk = perkManager.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
-                    if (!perkManager.IsAcquired(perk))
+                    if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
                     {
-                        abilitiesToRemove.Add(ability);
+                        PerkManager perkManager = Managers.Perks;
+                        CharacterPerk perk = perkManager.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
+                        if (!perkManager.IsAcquired(perk))
+                        {
+                            abilitiesToRemove.Add(ability);
+                        }
                     }
                 }
-            }
 
-            foreach (AbilitySO ability in abilitiesToRemove)
-            {
-                __instance.RemoveAbility(ability);
-            }
-        }
-
-        [HarmonyPatch(typeof(PerkManager), "GetByName")]
-        [HarmonyPrefix]   
-        internal static void GetByNamePatch(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
-        {
-            //AddNewUnlockPerks(__instance, ref ___saveNameMap);
-        }
-
-        /*[HarmonyPatch(typeof(PerkManager), "GetCharacterAbilities")]
-        [HarmonyPostfix]
-        internal static void GetCharacterAbilitiesPatch(PerkManager __instance, ref CharacterNames _character, ref Dictionary<string, CharacterPerk> ___saveNameMap, ref IEnumerable<AbilitySO> __result)
-        {
-            if (!temp)
-            {
-                ArchipelagoConsole.LogMessage(_character.ToString());
-                foreach (string key in ___saveNameMap.Keys)
+                foreach (AbilitySO ability in abilitiesToRemove)
                 {
-                    ArchipelagoConsole.LogMessage($"PerkManager has perk: {key}");
-                    if (___saveNameMap[key] is ProgressAddAbilityPerk abilityPerk)
-                    {
-                        ArchipelagoConsole.LogMessage($"PerkManager has ability perk: {abilityPerk.saveName} for ability: {abilityPerk.abilityMaster.AbilityClassName}");
-                    }
+                    __instance.RemoveAbility(ability);
                 }
-                temp = true;
             }
-        }*/
+            catch (Exception e)
+            {
+                Plugin.BepinLogger.LogError($"Failed to remove base abilities {e}");
+            }
+        }
 
         [HarmonyPatch(typeof(PerkManager), "Awake")]
         [HarmonyPostfix]

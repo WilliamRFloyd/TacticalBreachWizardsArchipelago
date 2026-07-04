@@ -12,6 +12,7 @@ using TBWArch.Utils;
 using TBWArch.SaveSystem;
 using Wizards.SaveSystem;
 using Wizards.Perks;
+using Wizards.LevelBuilding;
 using Wizards.People;
 using System.Threading.Tasks;
 using HarmonyLib;
@@ -24,7 +25,7 @@ public class ArchipelagoClient
     public static readonly Version APVersion = new(0, 6, 8);
     private const string Game = "Tactical Breach Wizards";
 
-    public static ArchipelagoClient Instance { get; private set; }
+    public static ArchipelagoClient Instance { get; set; }
 
     public static bool Authenticated;
     private bool attemptingConnection;
@@ -39,12 +40,8 @@ public class ArchipelagoClient
     /// <returns></returns>
     public async Task Connect()
     {
+        StoreSavedChecks();
         if (Authenticated || attemptingConnection) return;
-
-        if (Instance == null)
-        {
-            Instance = this;
-        }
 
         ConnectionManager connectionManager = SaveArchipelagoBehavior.connectionManager;
 
@@ -234,7 +231,6 @@ public class ArchipelagoClient
     /// <param name="message">message received from the server</param>
     private void OnSessionErrorReceived(Exception e, string message)
     {
-        ArchipelagoConsole.LogMessage($"Error received from Archipelago server: {message}. Exception: {e}");
         Plugin.BepinLogger.LogError(e);
     }
 
@@ -246,6 +242,25 @@ public class ArchipelagoClient
     {
         Plugin.BepinLogger.LogError($"Connection to Archipelago lost: {reason}");
         Disconnect();
+    }
+
+    private void StoreSavedChecks()
+    {
+        //Completed Levels
+        Managers.Save.LoadArchipelagoData();
+        LevelSaveManager levelSaveManager = SaveArchipelagoBehavior.levelSaveManager;
+        foreach (string completedLevel in levelSaveManager.completedLevels)
+        {
+            AddLocationByName(completedLevel);
+        }
+
+        Managers.Save.LoadProgressData();
+        ConfidencePointManager confidencePointManager = Managers.ConfidencePoints;
+        HashSet<string> completedGoals = Traverse.Create(confidencePointManager).Field("completedGoals").GetValue<HashSet<string>>();
+        foreach (string completedGoal in completedGoals)
+        {
+            AddLocationByName(completedGoal);
+        }
     }
 
     private void UnlockItemByName(string unlockName)
@@ -271,5 +286,21 @@ public class ArchipelagoClient
         Managers.Save.SavePerksData();
 
         ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
+    }
+
+    public void AddLocationByName(string name)
+    {
+        if (ArchipelagoLocations.LocationNameToId.Keys.Contains(name)) {
+            long id = ArchipelagoLocations.LocationNameToId[name];
+            if (!ServerData.CheckedLocations.Contains(id))
+            {
+                ServerData.CheckedLocations.Add(id);
+                SendChecks();
+            }
+        }
+        else
+        {
+            ArchipelagoConsole.LogMessage($"Invalid location name {name}");
+        }
     }
 }

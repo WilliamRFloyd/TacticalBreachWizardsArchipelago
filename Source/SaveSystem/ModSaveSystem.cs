@@ -11,6 +11,7 @@ using System;
 using System.Reflection;
 using Wizards.Stages;
 using Wizards.UI;
+using System.Threading;
 
 namespace TBWArch.SaveSystem
 {
@@ -240,6 +241,11 @@ namespace TBWArch.SaveSystem
             {
                 __instance.gameObject.AddComponent<SaveArchipelagoBehavior>();
             }
+
+            if (__instance.GetComponent<LevelSaveManager>() == null)
+            {
+                __instance.gameObject.AddComponent<LevelSaveManager>();
+            }
         }
 
         public static string GetArchipelagoSaveSlotDirectory()
@@ -272,9 +278,6 @@ namespace TBWArch.SaveSystem
         [HarmonyPrefix]
         public static void OnQuitClickPatch()
         {
-            Plugin.BepinLogger.LogMessage("OnQuitClickPatch called");
-            Plugin.BepinLogger.LogError("OnQuitClickPatch called");
-            Plugin.BepinLogger.LogMessage($"{ArchipelagoClient.Instance == null}");
             if (ArchipelagoClient.Instance != null)
             {
                 Plugin.BepinLogger.LogError("Disconnecting from Archipelago server on quit...");

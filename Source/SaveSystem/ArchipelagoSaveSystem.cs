@@ -165,6 +165,9 @@ namespace TBWArch.SaveSystem
     public abstract class SaveArchipelagoBehavior : NamedSaveBehaviour
     {
         public static ConnectionManager connectionManager;
+
+		public static LevelSaveManager levelSaveManager;
+
         public abstract void ResetProgress();
     }
 
@@ -221,4 +224,57 @@ namespace TBWArch.SaveSystem
             ArchipelagoClient.ServerData.Index = this.index;
         }
     }
+
+	public class LevelSaveManager : SaveArchipelagoBehavior, ISaveableComponent
+	{
+		public HashSet<string> completedLevels;
+        public override string SaveName
+		{
+			get
+			{
+				return "LevelSaveManager";
+			}
+		}
+
+        protected override void Awake()
+        {
+            base.Awake();
+			this.completedLevels = new HashSet<string>();
+            if (levelSaveManager == null)
+            {
+                levelSaveManager = this;
+            }
+        }
+
+        public override void ResetProgress()
+        {
+            this.completedLevels.Clear();
+        }
+
+        public void SaveData(IDataBlockRecorder _writer)
+        {
+			_writer.WriteComment("Completed Levels");
+			foreach (string value in this.completedLevels)
+			{
+				_writer.WriteListData("completedLevel", value);
+			}
+        }
+
+        public void LoadData(DataBlock _data)
+        {
+            this.ResetProgress();
+            if (_data.ContainsKey("completedLevel"))
+			{
+				foreach (string item in _data.FindList("completedLevel"))
+				{
+					this.completedLevels.Add(item);
+				}
+			}
+        }
+
+		public void FinishLoadingData()
+		{
+			
+		}
+	}
 }
