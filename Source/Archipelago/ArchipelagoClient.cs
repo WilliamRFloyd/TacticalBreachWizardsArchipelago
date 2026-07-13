@@ -115,7 +115,8 @@ public class ArchipelagoClient
             ItemsHandlingFlags.AllItems,
             APVersion,
             uuid: Guid.NewGuid().ToString(),
-            password: ServerData.Password == "" ? null : ServerData.Password
+            password: ServerData.Password == "" ? null : ServerData.Password,
+            requestSlotData: true
         );
 
         HandleConnectResult(result);
@@ -155,13 +156,16 @@ public class ArchipelagoClient
             var success = (LoginSuccessful)result;
 
             ServerData.SetupSession(success.SlotData, session.RoomState.Seed);
+
+            ConnectionManager connectionManager = SaveArchipelagoBehavior.connectionManager;
+            connectionManager.requiredConfidence = ServerData.RequiredConfidence;
+            connectionManager.goalMission = ServerData.GoalMission;
+
             Authenticated = true;
 
             DeathLinkHandler = new(session.CreateDeathLinkService(), ServerData.SlotName);
             session.Locations.CompleteLocationChecksAsync(ServerData.CheckedLocations.ToArray());
             outText = $"Successfully connected to {ServerData.Uri} as {ServerData.SlotName}!";
-            
-            ArchipelagoConsole.LogMessage(outText);
         }
         else
         {
@@ -250,17 +254,16 @@ public class ArchipelagoClient
             switch (locationId)
             {
                 case long id when id >= 1030 && id <= 1151:
-                    ArchipelagoConsole.LogMessage($"Level complete {locationName}");
+                    //ArchipelagoConsole.LogMessage($"Level complete {locationName}");
                     LevelSaveManager levelSaveManager = SaveArchipelagoBehavior.levelSaveManager;
                     if (!levelSaveManager.completedLevels.Contains(locationName))
                     {
                         levelSaveManager.completedLevels.Add(locationName);
-                        Managers.Save.SaveArchipelagoData();
                     }
                     break;
 
                 case long id when id >= 1200 && id <= 1431:
-                    ArchipelagoConsole.LogMessage($"Confidence goal complete {locationName}");
+                    //ArchipelagoConsole.LogMessage($"Confidence goal complete {locationName}");
                     ConfidencePointManager confidencePointManager = Managers.ConfidencePoints;
 
                     HashSet<string> completedGoals = Traverse.Create(confidencePointManager).Field("completedGoals").GetValue<HashSet<string>>();
@@ -271,6 +274,11 @@ public class ArchipelagoClient
                         Managers.Save.SaveProgressData();
                     }
                     break;
+            }
+
+            if (checkedLocationsQueue.Count == 0)
+            {
+                Managers.Save.SaveArchipelagoData();
             }
         }
     }
@@ -292,32 +300,43 @@ public class ArchipelagoClient
         if (canHandleItems)
         {
             ItemInfo nextItem = itemQueue.Dequeue();
-            ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName}");
+            //ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName}");
 
             long baseId = 1000;
 
             switch(nextItem.ItemId)
             {
+                case long id when id >= baseId + 5 && id <= baseId + 9:
+                    string confidenceWizardName = ArchipelagoItems.ItemIdToUnlock[id];
+
+                    AddConfidenceByName(confidenceWizardName);
+                    break;
+
                 case long id when id >= baseId + 10 && id <= baseId + 14:
                     string unlockWizardName = ArchipelagoItems.ItemIdToUnlock[id];
-                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a wizard class with unlock name {unlockWizardName}. Unlocking it.");
+                    //ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a wizard class with unlock name {unlockWizardName}. Unlocking it.");
 
                     UnlockItemByName(unlockWizardName);
                     break;
 
                 case long id when (id >= baseId + 20 && id <= baseId + 41) || (id >= baseId + 50 && id <= baseId + 100):
                     string unlockPerkName = ArchipelagoItems.ItemIdToUnlock[id];
-                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
+                    //ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a perk with unlock name {unlockPerkName}. Unlocking it.");
 
                     UnlockPerkByName(unlockPerkName);
                     break;
 
                 case long id when id >= baseId + 300 && id <= baseId + 340:
                     string unlockMissionName = ArchipelagoItems.ItemIdToUnlock[id];
-                    ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a mission with unlock name {unlockMissionName}. Unlocking it.");
+                    //ArchipelagoConsole.LogMessage($"Recieved item {nextItem.ItemDisplayName} which is a mission with unlock name {unlockMissionName}. Unlocking it.");
 
                     UnlockMissionByName(unlockMissionName);
                     break;
+            }
+
+            if (itemQueue.Count == 0)
+            {
+                Managers.Save.SaveArchipelagoData();
             }
         }
     }
@@ -363,6 +382,25 @@ public class ArchipelagoClient
         }
     }
 
+    private void AddConfidenceByName(string wizardName)
+    {
+        Dictionary<string, CharacterNames> wizardNameToEnum = new Dictionary<string, CharacterNames>
+        {
+            {"NavySeer", CharacterNames.NavySeer},
+            {"WitchCop", CharacterNames.WitchCop},
+            {"NecroMedic", CharacterNames.NecroMedic},
+            {"RiotPriest", CharacterNames.RiotPriest},
+            {"Druid", CharacterNames.Druid},
+        };
+        Managers.ConfidencePoints.AddPoints(wizardNameToEnum[wizardName], 1);
+        SaveArchipelagoBehavior.levelSaveManager.AddPoints(1);
+        if (SaveArchipelagoBehavior.levelSaveManager.totalConfidence >= SaveArchipelagoBehavior.connectionManager.requiredConfidence)
+        {
+            UnlockMissionByName(SaveArchipelagoBehavior.connectionManager.goalMission);
+        }
+        Managers.Save.SaveProgressData();
+    }
+
     private void UnlockPerkByName(string perkName)
     {
         Managers.Save.LoadPerksData();
@@ -370,17 +408,15 @@ public class ArchipelagoClient
         ModPerks.CallGetAcquiredPerks(perkManager, false).Add(perkName);
         Managers.Save.SavePerksData();
 
-        ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
+        //ArchipelagoConsole.LogMessage($"Unlocked perk {perkName}.");
     }
 
     private void UnlockMissionByName(string missionName)
     {
-        Managers.Save.LoadArchipelagoData();
         MissionUnlockManager missionUnlockManager = SaveArchipelagoBehavior.missionUnlockManager;
         missionUnlockManager.unlockedMissions.Add(missionName);
-        Managers.Save.SaveArchipelagoData();
 
-        ArchipelagoConsole.LogMessage($"Unlocked mission {missionName}.");
+        //ArchipelagoConsole.LogMessage($"Unlocked mission {missionName}.");
     }
 
     public void AddLocationByName(string name)

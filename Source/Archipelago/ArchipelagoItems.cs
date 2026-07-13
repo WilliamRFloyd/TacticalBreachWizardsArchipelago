@@ -8,6 +8,13 @@ public class ArchipelagoItems
     const long BASE_ID = 1000;
     public static Dictionary<long, string> ItemIdToUnlock = new Dictionary<long, string>
     {
+        //Confidence (Value is the wizard it's for)
+        {BASE_ID + 5, "NavySeer"},
+        {BASE_ID + 6, "WitchCop"},
+        {BASE_ID + 7, "NecroMedic"},
+        {BASE_ID + 8, "RiotPriest"},
+        {BASE_ID + 9, "Druid"},
+
         //Wizards
         {BASE_ID + 10, "NavySeer"},
         {BASE_ID + 11, "WitchCop"},

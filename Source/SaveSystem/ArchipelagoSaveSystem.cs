@@ -43,7 +43,11 @@ namespace TBWArch.SaveSystem
 					else
 					{
 						hashSet.Add(namedSaveBehaviour.SaveName);
-						namedSaveBehaviour.Save(fileWriter);
+						ISaveableComponent saveable = (ISaveableComponent) namedSaveBehaviour;
+						fileWriter.StartBlock(namedSaveBehaviour.SaveName);
+						saveable.SaveData(fileWriter);
+						fileWriter.EndBlock();
+						//namedSaveBehaviour.Save(fileWriter);
 					}
 				}
 				if (_copyUnused && File.Exists(text) && flag)
@@ -105,7 +109,8 @@ namespace TBWArch.SaveSystem
 						if (dictionary.ContainsKey(currentBlock))
 						{
 							DataBlock data = DataBlock.CreateFromFileReader(fileReader);
-							dictionary[currentBlock].Load(data);
+							ISaveableComponent saveable = (ISaveableComponent) dictionary[currentBlock];
+							saveable.LoadData(data);
 							if (_onLoad != null)
 							{
 								_onLoad(dictionary[currentBlock]);
@@ -175,11 +180,15 @@ namespace TBWArch.SaveSystem
 
     public class ConnectionManager : SaveArchipelagoBehavior, ISaveableComponent
     {
-        public string serverName { get; set; }
+        public string serverName;
 
-        public string slotName { get; set; }
+        public string slotName;
 
-        public int index { get; set; } = 0;
+        public int index = 0;
+
+		public int requiredConfidence = 0;
+
+		public string goalMission = "";
 
         public override string SaveName
         {
@@ -200,23 +209,30 @@ namespace TBWArch.SaveSystem
 
         public override void ResetProgress()
         {
-            this.serverName = "";
-            this.slotName = "";
+            serverName = "";
+            slotName = "";
+			index = 0;
+			requiredConfidence = 0;
+			goalMission = "";
         }
 
         public void SaveData(IDataBlockRecorder _writer)
         {
-            _writer.WriteData("serverName", this.serverName);
-            _writer.WriteData("slotName", this.slotName);
-            _writer.WriteData("index", this.index);
+            _writer.WriteData("serverName", serverName);
+            _writer.WriteData("slotName", slotName);
+            _writer.WriteData("index", index);
+			_writer.WriteData("requiredConfidence", requiredConfidence);
+			_writer.WriteData("goalMission", goalMission);
         }
 
         public void LoadData(DataBlock _data)
         {
-            this.ResetProgress();
-            this.serverName = _data.GetValueOrDefault("serverName", "archipelago.gg:");
-            this.slotName = _data.GetValueOrDefault("slotName", "");
-            this.index = _data.GetIntValueOrDefault("index", 0);
+            ResetProgress();
+            serverName = _data.GetValueOrDefault("serverName", "archipelago.gg:");
+            slotName = _data.GetValueOrDefault("slotName", "");
+            index = _data.GetIntValueOrDefault("index", 0);
+			requiredConfidence = _data.GetIntValueOrDefault("requiredConfidence", 0);
+			goalMission = _data.GetValueOrDefault("goalMission", "");
         }
 
 		public void FinishLoadingData()
@@ -229,6 +245,7 @@ namespace TBWArch.SaveSystem
 
 	public class LevelSaveManager : SaveArchipelagoBehavior, ISaveableComponent
 	{
+		public int totalConfidence;
 		public HashSet<string> completedLevels;
 
         public override string SaveName
@@ -242,7 +259,8 @@ namespace TBWArch.SaveSystem
         protected override void Awake()
         {
             base.Awake();
-			this.completedLevels = new HashSet<string>();
+			totalConfidence = 0;
+			completedLevels = new HashSet<string>();
             if (levelSaveManager == null)
             {
                 levelSaveManager = this;
@@ -251,11 +269,13 @@ namespace TBWArch.SaveSystem
 
         public override void ResetProgress()
         {
+			totalConfidence = 0;
             this.completedLevels.Clear();
         }
 
         public void SaveData(IDataBlockRecorder _writer)
         {
+			_writer.WriteData("confidencePoints", totalConfidence);
 			_writer.WriteComment("Completed Levels");
 			foreach (string value in this.completedLevels)
 			{
@@ -265,7 +285,8 @@ namespace TBWArch.SaveSystem
 
         public void LoadData(DataBlock _data)
         {
-            this.ResetProgress();
+            ResetProgress();
+			totalConfidence = _data.GetIntValueOrDefault("confidencePoints", 0);
             if (_data.ContainsKey("completedLevel"))
 			{
 				foreach (string item in _data.FindList("completedLevel"))
@@ -279,6 +300,11 @@ namespace TBWArch.SaveSystem
 		{
 			
 		}
+
+		public void AddPoints(int amount = 1)
+		{
+			totalConfidence += 1;
+		}
 	}
 
 	public class MissionUnlockManager : SaveArchipelagoBehavior, ISaveableComponent
@@ -289,7 +315,7 @@ namespace TBWArch.SaveSystem
 		{
 			get
 			{
-				return "LevelSaveManager";
+				return "MissionUnlockManager";
 			}
 		}
 

@@ -98,12 +98,11 @@ namespace TBWArch.SaveSystem
             try
             {
                 List<AbilitySO> abilitiesToRemove = new List<AbilitySO>();
+                PerkManager perkManager = Managers.Perks;
                 foreach (AbilitySO ability in __instance.abilityInstanceList)
                 {
                     if (abilityToUnlockPerk.ContainsKey(ability.AbilityClassName))
                     {
-                        
-                        PerkManager perkManager = Managers.Perks;
                         CharacterPerk perk = perkManager.GetByName(abilityToUnlockPerk[ability.AbilityClassName]);
                         if (!perkManager.IsAcquired(perk))
                         {
@@ -123,9 +122,19 @@ namespace TBWArch.SaveSystem
             }
         }
 
+        [HarmonyPatch(typeof(Person), "AddAbilityFromMasterAsset", new Type[] {typeof(AbilitySO)})]
+        [HarmonyPostfix]
+        internal static void FixAbilityListPatch(Person __instance)
+        {
+            if (__instance is Wizard wizard)
+            {
+                wizard.SetUpAbilityButtons(); //Fixes an issue where added abilities wouldn't display on the ability list if default abilities were removed and nothing else was updating the list
+            }
+        }
+
         [HarmonyPatch(typeof(PerkManager), "Awake")]
         [HarmonyPostfix]
-        internal static void ReadyPerkAdd(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
+        internal static void ReadyPerkAddPatch(PerkManager __instance, ref Dictionary<string, CharacterPerk> ___saveNameMap)
         {
             foreach (string abilityName in abilityToUnlockPerk.Keys)
             {

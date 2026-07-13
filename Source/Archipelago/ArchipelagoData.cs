@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
+using TBWArch.Utils;
 
 namespace TBWArch.Archipelago;
 
@@ -10,7 +12,15 @@ public class ArchipelagoData
     public string Password;
     public int Index;
 
+    public int RequiredConfidence;
+
+    public string GoalMission;
+
     public List<long> CheckedLocations;
+
+    private const int TOTAL_CONFIDENCE = 232;
+
+    private readonly List<string> OPTION_TO_MISSION_NAME = ["Finale - Roof", "Dream Heatsig", "Proving Ground 4"];
 
     /// <summary>
     /// seed for this archipelago data. Can be used when loading a file to verify the session the player is trying to
@@ -46,6 +56,15 @@ public class ArchipelagoData
     {
         slotData = roomSlotData;
         seed = roomSeed;
+
+        object value;
+
+        float confidencePercentage = Convert.ToSingle(slotData.TryGetValue("confidence_required_percentage", out value) ? value : 75) / 100;
+        int missionNum = Convert.ToInt32(slotData.TryGetValue("goal_mission", out value) ? value : 0);
+
+        RequiredConfidence = (int) (confidencePercentage * TOTAL_CONFIDENCE);
+        GoalMission = OPTION_TO_MISSION_NAME[missionNum];
+        
     }
 
     /// <summary>
